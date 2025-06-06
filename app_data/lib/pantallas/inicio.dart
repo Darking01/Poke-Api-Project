@@ -1,144 +1,259 @@
-import 'package:flutter/material.dart' hide Theme;
-import 'package:provider/provider.dart';
-import '../Widgets/resources.dart';
-import '../Models/inicio_controller.dart';
-import '../Visuales/theme.dart';
+import 'package:app_data/pantallas/account_options.dart';
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-class Inicio extends StatelessWidget {
+class Inicio extends StatefulWidget {
   const Inicio({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
-    final inicioController = Provider.of<InicioController>(context);
+  InicioState createState() => InicioState();
+}
 
-    return Scaffold(
-      key: _scaffold,
-      endDrawer: Drawer(
-        child: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  fit: BoxFit.cover,
-                  image: AssetImage('assets/imgs/home/backmenu.jpeg'),
-                ),
-              ),
-            ),
-            Container(color: const Color.fromARGB(185, 0, 0, 0)),
-            Column(
-              children: [
-                const SizedBox(height: 60),
-                const CircleAvatar(
-                  backgroundColor: Theme.gris1,
-                  backgroundImage: AssetImage('assets/imgs/home/pokeball.png'),
-                  radius: 60,
-                ),
-                const SizedBox(height: 20),
-                FutureBuilder(
-                  future: inicioController.nombreEntrenador,
-                  builder: (BuildContext context, AsyncSnapshot snapshot) {
-                    return snapshot.hasData
-                        ? Text(snapshot.data, style: Theme.lblTitle)
-                        : const Text('Consultando...', style: Theme.lblTitle);
-                  },
-                ),
+class InicioState extends State<Inicio> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _currentIndex = 0;
+  double _scale = 1.0;
 
-                const SizedBox(height: 20),
-                const Divider(height: 1, color: Theme.gris3),
-                //opciones
-                optionMenuWidget(context, 'Pokemones', inicioController),
-                optionMenuWidget(context, 'Equipos', inicioController),
-                Expanded(child: Container()),
-                optionSalirWidget(context, inicioController),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ],
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentIndex = _tabController.index;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    Color backgroundColor = Colors.blue,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
         ),
       ),
-      body: Stack(
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Demo de Flutter"),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.home), text: "Inicio"),
+            Tab(icon: Icon(Icons.favorite), text: "Favoritos"),
+            Tab(icon: Icon(Icons.settings), text: "Ajustes"),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              _showSnackBar(context, 'Notificaciones han sido presionadas');
+            },
+          ),
+        ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          inicioController.vistaSeleccionada == 'Pokemones'
-              ? const Favoritos()
-              : const Perfil(),
-          SafeArea(
-            child: Row(
+          // Primer tab - Inicio mostrando pokémones en tarjetas cuadradas
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: fetchPokemons(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
+                  child: Text('No se encontraron pokémones.'),
+                );
+              }
+              final pokemons = snapshot.data!;
+              return GridView.builder(
+                padding: const EdgeInsets.all(16.0),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, // 2 columnas
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1, // cuadrado
+                ),
+                itemCount: pokemons.length,
+                itemBuilder: (context, index) {
+                  final pokemon = pokemons[index];
+                  return GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (_) => AlertDialog(
+                              title: Text(
+                                pokemon['name'].toString().toUpperCase(),
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (pokemon['image'] != null)
+                                    Image.network(
+                                      pokemon['image'],
+                                      width: 240,
+                                      height: 240,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  const SizedBox(height: 16),
+                                  Text('¡Haz atrapado a ${pokemon['name']}!'),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cerrar'),
+                                ),
+                              ],
+                            ),
+                      );
+                    },
+                    child: Card(
+                      elevation: 4.0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (pokemon['image'] != null)
+                              Image.network(
+                                pokemon['image'],
+                                width: 330,
+                                height: 300,
+                                fit: BoxFit.contain,
+                              ),
+                            const SizedBox(height: 12),
+                            Text(
+                              pokemon['name'].toString().toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          // Segundo tab - Favoritos (puedes personalizarlo)
+          const Center(child: Text('Favoritos')),
+
+          // Tercer tab - Ajustes
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Expanded(child: SizedBox()),
-                IconButton(
+                const Text(
+                  'Pantalla de Ajustes',
+                  style: TextStyle(fontSize: 24),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
                   onPressed: () {
-                    _scaffold.currentState!.openEndDrawer();
+                    _showSnackBar(
+                      context,
+                      'Ajustes guardados',
+                      backgroundColor: Colors.green,
+                    );
                   },
-                  icon: const Icon(Icons.menu),
+                  child: const Text('Guardar ajustes'),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AccountOptionsScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('Opciones de cuenta'),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Row optionSalirWidget(
-    BuildContext context,
-    InicioController inicioController,
-  ) {
-    return Row(
-      children: [
-        const Expanded(child: SizedBox()),
-        SizedBox(
-          height: 80,
-          child: InkWell(
-            onTap: () => inicioController.clickSalir(context),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: const [
-                SizedBox(width: 30, height: 20),
-                Image(
-                  height: 30,
-                  image: AssetImage('assets/imgs/icon_logout.png'),
-                ),
-                SizedBox(width: 30, height: 49),
-                Text('Salir', style: Theme.lblHomeOption),
-              ],
-            ),
-          ),
-        ),
-        const Expanded(child: SizedBox()),
-      ],
-    );
-  }
-
-  InkWell optionMenuWidget(
-    BuildContext context,
-    String opcion,
-    InicioController inicioController,
-  ) {
-    return InkWell(
-      onTap: () {
-        inicioController.clickOpcion(context, opcion);
-      },
-      child: SizedBox(
-        height: 50,
-        child: Column(
-          children: [
-            Container(
-              alignment: Alignment.center,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(width: 30),
-                  const Image(
-                    height: 30,
-                    image: AssetImage('assets/imgs/pokeball_gray.png'),
-                  ),
-                  const SizedBox(width: 30, height: 49),
-                  Text(opcion, style: Theme.lblHomeOption),
-                ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _showSnackBar(
+            context,
+            'Floating ha sido presionado en la tab: ${_tabController.index + 1}',
+          );
+        },
+        child: const Icon(Icons.add),
+        tooltip: "Agregar",
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Menu Drawer',
+                style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
-            const Divider(height: 1, color: Theme.gris3),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text("Inicio"),
+              onTap: () {
+                _tabController.animateTo(0);
+                Navigator.pop(context);
+                Tab(icon: Icon(Icons.home), text: "Inicio");
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.favorite),
+              title: const Text("Favoritos"),
+              onTap: () {
+                _tabController.animateTo(1);
+                Navigator.pop(context);
+                Tab(icon: Icon(Icons.favorite), text: "Inicio");
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text("Ajustes"),
+              onTap: () {
+                _tabController.animateTo(2);
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
@@ -146,20 +261,28 @@ class Inicio extends StatelessWidget {
   }
 }
 
-class Perfil extends StatelessWidget {
-  const Perfil({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text('Perfil'));
-  }
-}
-
-class Favoritos extends StatelessWidget {
-  const Favoritos({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text('Favoritos'));
+// metodo para conseguir los pokes
+Future<List<Map<String, dynamic>>> fetchPokemons() async {
+  final response = await http.get(
+    Uri.parse('https://pokeapi.co/api/v2/pokemon?limit=10'),
+  );
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    final List results = data['results'];
+    // info de cada pokemon
+    List<Map<String, dynamic>> pokemons = [];
+    for (var item in results) {
+      final detailResponse = await http.get(Uri.parse(item['url']));
+      if (detailResponse.statusCode == 200) {
+        final detailData = json.decode(detailResponse.body);
+        final id = detailData['id'];
+        final imageUrl =
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$id.png';
+        pokemons.add({'name': detailData['name'], 'image': imageUrl});
+      }
+    }
+    return pokemons;
+  } else {
+    throw Exception('Error al cargar los pokémones');
   }
 }
