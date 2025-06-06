@@ -1,0 +1,20 @@
+
+import 'package:flutter/material.dart';
+import 'resources.dart';
+import '../pantallas/inicio.dart';
+
+
+class AppRoutes{
+
+  static const initialRoute = 'user';
+
+  static  Map<String, Widget Function(BuildContext)> routes = {
+  'home'   : (BuildContext context) => const Inicio(),
+  'user'   : (BuildContext context) => const UserPage(),
+  'pokemon': (BuildContext context) => const PokemonPage(),
+  'lista'  : (BuildContext context) => const ListaPage(),
+  'grupo'  : (BuildContext context) => const GrupoPage(),
+  };
+
+}
+
