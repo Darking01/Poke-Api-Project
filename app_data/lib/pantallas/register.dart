@@ -1,10 +1,9 @@
-import 'package:app_data/pantallas/account_options.dart';
-import 'package:app_data/pantallas/login.dart';
+import '../pantallas/login.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -16,7 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
-  // ...existing code...
+
   Future<void> _register() async {
     setState(() {
       _loading = true;
@@ -27,22 +26,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Navega a la pantalla de opciones de cuenta después de registrarse
+      if (!mounted) return; // <-- Verifica antes de usar context
+      // Redirige a la pantalla de Login después de registrarse
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     } on Exception catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = 'Error al registrar: ${e.toString()}';
       });
     } finally {
+      if (!mounted) return;
       setState(() {
         _loading = false;
       });
     }
   }
-  // ...existing code...
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +96,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? const CircularProgressIndicator()
                           : const Text('Registrarse'),
                 ),
+              ),
+              TextButton(
+                onPressed:
+                    _loading
+                        ? null
+                        : () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                child: const Text('¿Ya tienes cuenta? Inicia sesión'),
               ),
             ],
           ),

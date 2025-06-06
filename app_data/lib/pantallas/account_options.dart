@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-//import 'login.dart';
+import 'login.dart';
 //import '../main.dart';
 
 class AccountOptionsScreen extends StatefulWidget {
@@ -106,6 +106,25 @@ class _AccountOptionsScreenState extends State<AccountOptionsScreen> {
           ElevatedButton(
             onPressed: resetPasswordFromCurrent,
             child: const Text('Cambiar contraseña'),
+          ),
+
+          const Divider(height: 40),
+
+          // Botón para cerrar sesión
+          ElevatedButton(
+            onPressed: () async {
+              await authService.value.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cerrar sesión'),
           ),
         ],
       ),

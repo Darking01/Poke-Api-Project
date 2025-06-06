@@ -1,4 +1,5 @@
 import '../services/auth_service.dart';
+//import 'package:flutter/src/widgets/navigator.dart';
 import 'package:flutter/material.dart';
 import 'register.dart';
 import 'inicio.dart';
@@ -27,24 +28,26 @@ class _LoginScreenState extends State<LoginScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      // Navega a opciones de cuenta al iniciar sesión
+      if (!mounted) return; // Verifica antes de usar context
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const Inicio()),
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = 'Error al iniciar sesión';
       });
     }
 
+    if (!mounted) return;
     setState(() {
       isLoading = false;
     });
   }
 
   void goToRegister() {
-    Navigator.push(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const RegisterScreen()),
     );
@@ -74,6 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     await authService.value.resetPassword(
                       email: resetEmailController.text.trim(),
                     );
+                    if (!mounted) return;
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -81,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     );
                   } catch (_) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Error al enviar el correo'),
